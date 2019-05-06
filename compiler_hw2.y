@@ -63,7 +63,7 @@ stat
 ;
 
 declaration
-    : type ID '=' initializer SEMICOLON
+    : type ID ASGN expression SEMICOLON
     | type ID SEMICOLON
 ;
 
@@ -76,6 +76,103 @@ type
     | VOID { $$ = $1; }
 ;
 
+compound_stat
+    : if_stat
+    | while_stat
+;
+
+if_stat
+    : IF expression block
+    | IF expression block ELSE block
+    | IF expression block ELSE if_stat
+;
+
+block
+    : LCB program RCB
+;
+
+while_stat
+    : WHILE expression block
+;
+
+expression_stat
+    : ID assign_op expression SEMICOLON
+;
+
+expression
+    : comparison_expr { $$ = $1; }
+;
+
+comparison_expr
+    : addition_expr { $$ = $1; }
+    | comparison_expr cmp_op addition_expr {}
+;
+
+addition_expr
+    : multiplication_expr { $$ = $1; }
+    | addition_expr add_op multiplication_expr {}
+;
+
+multiplication_expr
+    : postfix_expr { $$ = $1; }
+    | multiplication_expr mul_op postfix_expr {}
+;
+
+postfix_expr
+    : parenthesis { $$ = $1; }
+    | parenthesis post_op {}
+;
+
+parenthesis
+    : constant { $$ = $1; }
+    | ID {}
+    | TRUE
+    | FALSE
+    | LB expression RB { $$ = $2; }
+;
+
+cmp_op
+    : MT
+    | LT
+    | MTE
+    | LTE
+    | EQ
+    | NE
+;
+
+add_op
+    : ADD
+    | SUB
+;
+
+mul_op
+    : MUL
+    | DIV
+    | MOD
+;
+
+post_op
+    : INC
+    | DEC
+;
+
+assign_op
+    : ASGN
+    | ADDASGN
+    | SUBASGN
+    | MULASGN
+    | DIVASGN
+    | MODASGN
+;
+
+constant
+    : I_CONST {}
+    | F_CONST {}
+;
+
+print_func
+    : PRINT LB ID RB SEMICOLON
+    | PRINT LB QUOTA STR_CONST QUOTA RB SEMICOLON
 %%
 
 /* C code section */
