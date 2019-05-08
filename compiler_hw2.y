@@ -60,10 +60,12 @@ stat
     | compound_stat
     | expression_stat
     | print_func
+    | func_definition
+    | func
 ;
 
 declaration
-    : type ID ASGN expression SEMICOLON
+    : type ID ASGN expression SEMICOLON {}
     | type ID SEMICOLON
 ;
 
@@ -173,6 +175,37 @@ constant
 print_func
     : PRINT LB ID RB SEMICOLON
     | PRINT LB QUOTA STR_CONST QUOTA RB SEMICOLON
+;
+
+func_definition
+    : type ID LB type_arguments RB func_block
+;
+
+type_arguments
+    : type_arguments COMMA arg
+    | arg
+    |
+;
+
+arg
+    : type ID
+;
+
+func_block
+    : LCB program RCB
+    | LCB program RET constant SEMICOLON RCB
+    | LCB program RET ID SEMICOLON RCB
+;
+
+func
+    : ID LB arguments RB SEMICOLON
+;
+
+arguments
+    : arguments COMMA ID
+    | ID
+;
+
 %%
 
 /* C code section */
@@ -194,6 +227,7 @@ void yyerror(char *s)
     printf("\n|-----------------------------------------------|\n\n");
 }
 
+void 
 void create_symbol() {}
 void insert_symbol() {}
 int lookup_symbol() {}
