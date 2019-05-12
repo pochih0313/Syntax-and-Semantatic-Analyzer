@@ -115,6 +115,7 @@ int main(int argc,char *argv[])
 {
 	yyin = fopen(argv[1],"r");
 	yylex();
+	
 	printf("\nParse over, the line number is %d.\n\n", line_num);
 	printf("comment: %d lines\n\n", comment_num);
 

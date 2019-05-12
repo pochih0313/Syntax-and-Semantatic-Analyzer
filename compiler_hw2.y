@@ -1,48 +1,72 @@
 /*	Definition section */
 %{
+#include "compiler.h" 
+#include "stdio.h"
+
+typedef struct Entry Entry;
+struct Entry {
+    int index;
+    char *name;
+    char *kind;
+    char *type;
+    int scope;
+    char *attribute;
+    Entry *next;
+};
+
+typedef struct Table Table;
+struct Table {
+    int depth;
+    Entry *root;
+    Entry *tail;
+    Table *pre;
+}
+Table *header_root = NULL;
+Table *cur_header = NULL;
+
 extern int yylineno;
 extern int yylex();
 extern char* yytext;   // Get current token from lex
 extern char buf[256];  // Get current code line from lex
 
+Value NV = {0};
+
 /* Symbol table function - you can add new function if needed. */
+void declarate(const char* type, const Value id, const Value val);
 int lookup_symbol();
 void create_symbol();
 void insert_symbol();
 void dump_symbol();
-
 %}
 
 /* Use variable or self-defined structure to represent
  * nonterminal and token type
  */
 %union {
-    int i_val;
-    double f_val;
-    char* string;
+    struct Value value;
+    char* type;
 }
 
 /* Token without return */
 %token PRINT 
 %token IF ELSE FOR WHILE
-%token ID SEMICOLON
+%token SEMICOLON
 %token ADD SUB MUL DIV MOD INC DEC
 %token MT LT MTE LTE EQ NE
 %token ASGN ADDASGN SUBASGN MULASGN DIVASGN MODASGN
 %token AND OR NOT
 %token LB RB LCB RCB LSB RSB COMMA
-%token VOID INT FLOAT STRING BOOL
-%token TRUE FALSE
 %token RET
-%token QUOTA C_Comment C++_Comment
-
+%token QUOTA
 /* Token with return, which need to sepcify type */
-%token <i_val> I_CONST
-%token <f_val> F_CONST
-%token <string> STR_CONST
-
+%token <type> VOID INT FLOAT STRING BOOL
+%token <value> ID I_CONST F_CONST STR_CONST
+%token <value> TRUE FALSE
 /* Nonterminal with return, which need to sepcify type */
-%type <f_val> stat
+%type <type> type
+%type <value> expression comparison_expr addition_expr
+%type <value> multiplication_expr postfix_expr parenthesis
+%type <value> constant
 
 /* Yacc will start at this nonterminal */
 %start program
@@ -65,8 +89,8 @@ stat
 ;
 
 declaration
-    : type ID ASGN expression SEMICOLON {}
-    | type ID SEMICOLON
+    : type ID ASGN expression SEMICOLON { declarate($1, $2, $4); }
+    | type ID SEMICOLON { declarate($1, $2, NV); }
 ;
 
 /* actions can be taken when meet the token or rule */
@@ -98,7 +122,8 @@ while_stat
 ;
 
 expression_stat
-    : ID assign_op expression SEMICOLON
+    : expression SEMICOLON
+    | ID assign_op expression SEMICOLON
 ;
 
 expression
@@ -107,29 +132,29 @@ expression
 
 comparison_expr
     : addition_expr { $$ = $1; }
-    | comparison_expr cmp_op addition_expr {}
+    | comparison_expr cmp_op addition_expr
 ;
 
 addition_expr
     : multiplication_expr { $$ = $1; }
-    | addition_expr add_op multiplication_expr {}
+    | addition_expr add_op multiplication_expr
 ;
 
 multiplication_expr
     : postfix_expr { $$ = $1; }
-    | multiplication_expr mul_op postfix_expr {}
+    | multiplication_expr mul_op postfix_expr
 ;
 
 postfix_expr
     : parenthesis { $$ = $1; }
-    | parenthesis post_op {}
+    | parenthesis post_op
 ;
 
 parenthesis
     : constant { $$ = $1; }
-    | ID {}
-    | TRUE
-    | FALSE
+    | ID { $$ = $1; }
+    | TRUE { $$ = $1; }
+    | FALSE { $$ = $1; }
     | LB expression RB { $$ = $2; }
 ;
 
@@ -168,8 +193,9 @@ assign_op
 ;
 
 constant
-    : I_CONST {}
-    | F_CONST {}
+    : I_CONST { $$ = $1; }
+    | F_CONST { $$ = $1; }
+    | QUOTA STR_CONST QUOTA { $$ = $2; }
 ;
 
 print_func
@@ -193,8 +219,7 @@ arg
 
 func_block
     : LCB program RCB
-    | LCB program RET constant SEMICOLON RCB
-    | LCB program RET ID SEMICOLON RCB
+    | LCB program RET expression SEMICOLON RCB
 ;
 
 func
@@ -227,11 +252,17 @@ void yyerror(char *s)
     printf("\n|-----------------------------------------------|\n\n");
 }
 
-void 
-void create_symbol() {}
-void insert_symbol() {}
-int lookup_symbol() {}
-void dump_symbol() {
-    printf("\n%-10s%-10s%-12s%-10s%-10s%-10s\n\n",
-           "Index", "Name", "Kind", "Type", "Scope", "Attribute");
+void declarate(const char* type, const Value id, const Value val) {
+    printf("hi");
 }
+
+void create_symbol() {
+    //Table *ptr = malloc(sizeof(Table));
+
+}
+// void insert_symbol() {}
+// int lookup_symbol() {}
+// void dump_symbol() {
+//     printf("\n%-10s%-10s%-12s%-10s%-10s%-10s\n\n",
+//            "Index", "Name", "Kind", "Type", "Scope", "Attribute");
+// }
