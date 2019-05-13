@@ -3,16 +3,11 @@
 
 typedef struct Value Value;
 struct Value {
-    union {
-        int i_val;
-        float f_val;
-        int b_val;
-        char *string;
-        struct {
-            char *id_name;
-            Value *value_ptr;
-        };
-    };
+    int i_val;
+    float f_val;
+    int b_val;
+    char *string;
+    char *id_name;
 };
 
 #endif

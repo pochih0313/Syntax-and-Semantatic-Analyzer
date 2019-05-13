@@ -27,14 +27,15 @@ extern int yylineno;
 extern int yylex();
 extern char* yytext;   // Get current token from lex
 extern char buf[256];  // Get current code line from lex
-Value NV = {0};
+extern char codeline[100];
+
 int depth = 0;
+int entry_num[100] = {0};
 
 /* Symbol table function - you can add new function if needed. */
-void declarate(const char* type, const Value id, const Value val);
-int lookup_symbol();
+int lookup_symbol(Header *header, char *id_name);
 void create_symbol();
-void insert_symbol();
+void insert_symbol(Header *header, char *id_name, char* type, char* kind, char* attribute);
 void dump_symbol();
 %}
 
@@ -84,8 +85,12 @@ stat
     | func
 ;
 declaration
-    : type ID ASGN expression SEMICOLON { declarate($1, $2, $4); }
-    | type ID SEMICOLON { declarate($1, $2, NV); }
+    : type ID ASGN expression SEMICOLON {
+            insert_symbol(cur_header, $2.id_name, $1, "variable", "");
+        }
+    | type ID SEMICOLON {
+            insert_symbol(cur_header, $2.id_name, $1, "variable", "");
+        }
 ;
 type
     : INT { $$ = $1; }
@@ -205,23 +210,20 @@ arguments
 int main(int argc, char** argv)
 {
     yylineno = 0;
-
+    printf(printf(buf));
     yyparse();
 	printf("\nTotal lines: %d \n",yylineno);
 
+    dump_symbol();
     return 0;
 }
 
 void yyerror(char *s)
 {
     printf("\n|-----------------------------------------------|\n");
-    printf("| Error found in line %d: %s\n", yylineno, buf);
+    printf("| Error found in line %d: %s\n", yylineno, codeline);
     printf("| %s", s);
     printf("\n|-----------------------------------------------|\n\n");
-}
-
-void declarate(const char* type, const Value id, const Value val) {
-    //printf("hi");
 }
 
 void create_symbol() {
@@ -241,9 +243,65 @@ void create_symbol() {
         cur_header = p;
     }
 }
-void insert_symbol() {}
-int lookup_symbol() {}
+void insert_symbol(Header *header, char* id_name, char* type, char* kind, char* attribute) {
+    if (cur_header == NULL) {
+        create_symbol();
+        header = cur_header;
+    }
+    if (lookup_symbol(header, id_name) == -1) {
+        Entry *temp = malloc(sizeof(Entry));
+        temp->index = entry_num[header->depth]++;
+        temp->name = id_name;
+        temp->kind = kind;
+        temp->type = type;
+        temp->scope = header->depth;
+        temp->attribute = attribute;
+        temp->next = NULL;
+        header->tail->next = temp;
+        header->tail = header->tail->next;
+    }
+    else {
+        char msg[100];
+        if(kind == "variable"){
+            sprintf(msg, "Redeclared variable <%s>", id_name);
+        }
+        else if (kind == "function"){
+            sprintf(msg, "Redeclared function <%s>", id_name);
+        }    
+        yyerror(msg);
+    }
+}
+int lookup_symbol(Header *header, char *id_name) {
+    if (header->root != NULL) {
+        Entry *cur = header->root->next;
+        while (cur != NULL) {
+            if (strcmp(cur->name, id_name) == 0) {
+                return cur->index;
+            }
+            else {
+                cur = cur->next;
+            }
+        }
+        return -1;
+    }
+    else {
+        return -1;
+    }
+}
 void dump_symbol() {
-    printf("\n%-10s%-10s%-12s%-10s%-10s%-10s\n\n",
+    if (cur_header->root != NULL) {
+        printf("\n%-10s%-10s%-12s%-10s%-10s%-10s\n\n",
            "Index", "Name", "Kind", "Type", "Scope", "Attribute");
+        Entry *cur = cur_header->root->next;
+        while(cur != NULL) {
+            printf("%-10d%-10s%-12s%-10s%-10d%-10s\n", cur->index, cur->name, cur->kind, cur->type, cur->scope, cur->attribute);
+            Entry *temp = cur;
+            cur = cur->next;
+            free(temp);
+            temp = NULL;
+        }
+        entry_num[depth] = 0;
+    }
+    cur_header = cur_header->previous;
+    depth--;
 }
