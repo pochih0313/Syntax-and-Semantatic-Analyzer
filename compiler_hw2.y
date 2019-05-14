@@ -27,7 +27,8 @@ extern int yylineno;
 extern int yylex();
 extern char* yytext;   // Get current token from lex
 extern char buf[256];  // Get current code line from lex
-extern char codeline[100];
+extern int flag;
+extern char msg[100];
 
 int depth = 0;
 int entry_num[100] = {0};
@@ -74,7 +75,8 @@ void dump_symbol();
 %%
 program
     : program stat
-    |
+    | error
+    | 
 ;
 stat
     : declaration
@@ -210,7 +212,6 @@ arguments
 int main(int argc, char** argv)
 {
     yylineno = 0;
-    printf(printf(buf));
     yyparse();
 	printf("\nTotal lines: %d \n",yylineno);
 
@@ -220,10 +221,16 @@ int main(int argc, char** argv)
 
 void yyerror(char *s)
 {
-    printf("\n|-----------------------------------------------|\n");
-    printf("| Error found in line %d: %s\n", yylineno, codeline);
-    printf("| %s", s);
-    printf("\n|-----------------------------------------------|\n\n");
+    if((strcmp(s, "syntax error") == 0) && flag == 0) {
+        flag = -1;
+    } 
+    else {
+        printf("%s\n", buf);
+        printf("\n|-----------------------------------------------|\n");
+        printf("| Error found in line %d: %s\n", yylineno, buf);
+        printf("| %s", s);
+        printf("\n|-----------------------------------------------|\n\n");
+    }
 }
 
 void create_symbol() {
@@ -261,14 +268,14 @@ void insert_symbol(Header *header, char* id_name, char* type, char* kind, char* 
         header->tail = header->tail->next;
     }
     else {
-        char msg[100];
         if(kind == "variable"){
             sprintf(msg, "Redeclared variable <%s>", id_name);
+            flag = 3;
         }
         else if (kind == "function"){
             sprintf(msg, "Redeclared function <%s>", id_name);
+            flag = 4;
         }    
-        yyerror(msg);
     }
 }
 int lookup_symbol(Header *header, char *id_name) {

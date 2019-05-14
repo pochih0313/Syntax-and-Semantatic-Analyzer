@@ -6,13 +6,14 @@
 #define BUF_SIZE 256
 extern YYSTYPE yylval; //YYSTYPE
 char buf[BUF_SIZE];
-char codeline[100];
 
 int line_num = 0;
 int comment_num = 0;
 int comment_line = -1;
+int flag = 0;
+char msg[100];
 /* This macro is used to record code line */
-#define CONCAT { strncat(buf, yytext, BUF_SIZE - strlen(buf) - 1); strncat(codeline, yytext, 100 - strlen(codeline) - 1);}
+#define CONCAT { strncat(buf, yytext, BUF_SIZE - strlen(buf) - 1); }
 %}
 
 /* Define regular expression label */
@@ -63,7 +64,7 @@ id			{letter}+({letter}|{digit})*
 "("		{ CONCAT; return LB; }
 ")"		{ CONCAT; return RB; }
 "{"		{ CONCAT; return LCB; }
-"}"		{ CONCAT; memset(buf,'\0', BUF_SIZE); return RCB; }
+"}"		{ CONCAT; return RCB; }
 "["		{ CONCAT; return LSB; }
 "]"		{ CONCAT; return RSB; }
 ","		{ CONCAT; return COMMA; }
@@ -148,7 +149,20 @@ id			{letter}+({letter}|{digit})*
  /* others */
 
 [;]         { CONCAT; return SEMICOLON; }
-[\n]        { printf(codeline);memset(codeline, '\0', 100); CONCAT; line_num++; }
+[\n]        { CONCAT;
+                if(flag == -1) {
+                    yyerror("syntax error");
+                    yyterminate();
+                }
+                else if(flag != 0) {
+                    yyerror(msg);
+                    flag = 0;
+                }
+                else {
+                    printf(buf);
+                }
+                memset(buf,'\0', BUF_SIZE);
+                line_num++; }
 [ \t]		{ CONCAT; } /* Ignore */
 [^ \t\n] 	{ CONCAT; } /* Ignore other charactor sets */
 <<EOF>>     { yyterminate(); }
