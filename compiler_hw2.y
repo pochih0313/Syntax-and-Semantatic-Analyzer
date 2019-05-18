@@ -27,8 +27,10 @@ extern int yylineno;
 extern int yylex();
 extern char* yytext;   // Get current token from lex
 extern char buf[256];  // Get current code line from lex
-extern int flag;
-extern char msg[100];
+extern int error_flag[2];
+extern char msg[10][100];
+extern int error_num;
+extern char dump_flag;
 
 int depth = 0;
 int entry_num[100] = {0};
@@ -111,14 +113,28 @@ if_stat
     | IF expression block ELSE if_stat
 ;
 block
-    : LCB program RCB
+    : LCB{ create_symbol(); } program RCB { dump_flag = 1; }
 ;
 while_stat
     : WHILE expression block
 ;
 expression_stat
     : expression SEMICOLON
-    | ID assign_op expression SEMICOLON
+    | ID{ 
+        Header *cur = cur_header;
+        int f = 0;
+        while (cur != NULL) {
+            if(lookup_symbol(cur, $1.id_name) != -1) {
+                f = 1;
+                break;
+            }
+            cur = cur->previous;
+        }
+        if (f != 1) {
+            sprintf(msg[error_num++], "Undeclared variable %s", $1.id_name);
+            error_flag[1] = 1;
+        }
+    } assign_op expression SEMICOLON
 ;
 expression
     : comparison_expr { $$ = $1; }
@@ -141,7 +157,21 @@ postfix_expr
 ;
 parenthesis
     : constant { $$ = $1; }
-    | ID { $$ = $1; }
+    | ID { $$ = $1; 
+        Header *cur = cur_header;
+        int f = 0;
+        while (cur != NULL) {
+            if(lookup_symbol(cur, $1.id_name) != -1) {
+                f = 1;
+                break;
+            }
+            cur = cur->previous;
+        }
+        if (f != 1) {
+            sprintf(msg[error_num++], "Undeclared variable <%s>", $1.id_name);
+            error_flag[1] = 1;
+        }
+    }
     | TRUE { $$ = $1; }
     | FALSE { $$ = $1; }
     | LB expression RB { $$ = $2; }
@@ -181,11 +211,27 @@ constant
     | QUOTA STR_CONST QUOTA { $$ = $2; }
 ;
 print_func
-    : PRINT LB ID RB SEMICOLON
+    : PRINT LB ID{
+        Header *cur = cur_header;
+        int f = 0;
+        while (cur != NULL) {
+            if(lookup_symbol(cur, $3.id_name) != -1) {
+                f = 1;
+                break;
+            }
+            cur = cur->previous;
+        }
+        if (f != 1) {
+            sprintf(msg[error_num++], "Undeclared variable %s", $3.id_name);
+            error_flag[1] = 1;
+        }
+    } RB SEMICOLON
     | PRINT LB QUOTA STR_CONST QUOTA RB SEMICOLON
 ;
 func_definition
-    : type ID LB type_arguments RB func_block
+    : type ID{
+            insert_symbol(cur_header, $2.id_name, $1, "function", "");
+        } LB{ create_symbol(); } type_arguments RB func_block
 ;
 type_arguments
     : type_arguments COMMA arg
@@ -193,18 +239,60 @@ type_arguments
     |
 ;
 arg
-    : type ID
+    : type ID { insert_symbol(cur_header, $2.id_name, $1, "parameter", ""); }
 ;
 func_block
-    : LCB program RCB
-    | LCB program RET expression SEMICOLON RCB
+    : LCB program RCB { dump_flag = 1; }
+    | LCB program RET expression SEMICOLON RCB { dump_flag = 1; }
 ;
 func
-    : ID LB arguments RB SEMICOLON
+    : ID{
+        Header *cur = cur_header;
+        int f = 0;
+        while (cur != NULL) {
+            if(lookup_symbol(cur, $1.id_name) != -1) {
+                f = 1;
+                break;
+            }
+            cur = cur->previous;
+        }
+        if (f != 1) {
+            sprintf(msg[error_num++], "Undeclared function %s", $1.id_name);
+            error_flag[1] = 1;
+        }
+    } LB arguments RB SEMICOLON
 ;
 arguments
-    : arguments COMMA ID
-    | ID
+    : arguments COMMA ID {
+        Header *cur = cur_header;
+        int f = 0;
+        while (cur != NULL) {
+            if(lookup_symbol(cur, $3.id_name) != -1) {
+                f = 1;
+                break;
+            }
+            cur = cur->previous;
+        }
+        if (f != 1) {
+            sprintf(msg[error_num++], "Undeclared variable %s", $3.id_name);
+            error_flag[1] = 1;
+        }
+    }
+    | ID {
+        Header *cur = cur_header;
+        int f = 0;
+        while (cur != NULL) {
+            if(lookup_symbol(cur, $1.id_name) != -1) {
+                f = 1;
+                break;
+            }
+            cur = cur->previous;
+        }
+        if (f != 1) {
+            sprintf(msg[error_num++], "Undeclared variable %s", $1.id_name);
+            error_flag[1] = 1;
+        }
+    }
 ;
 %%
 
@@ -213,19 +301,20 @@ int main(int argc, char** argv)
 {
     yylineno = 0;
     yyparse();
-	printf("\nTotal lines: %d \n",yylineno);
-
-    dump_symbol();
+    if(error_flag[0] != 1) {
+        printf("\nTotal lines: %d \n",yylineno);
+        dump_symbol();
+    }
     return 0;
 }
 
 void yyerror(char *s)
 {
-    if((strcmp(s, "syntax error") == 0) && flag == 0) {
-        flag = -1;
+    if((strcmp(s, "syntax error") == 0) && error_flag[0] == 0) {
+        error_flag[0] = 1;
     } 
     else {
-        printf("%s\n", buf);
+        //printf("%s\n", buf);
         printf("\n|-----------------------------------------------|\n");
         printf("| Error found in line %d: %s\n", yylineno, buf);
         printf("| %s", s);
@@ -239,7 +328,7 @@ void create_symbol() {
     p->root = malloc(sizeof(Entry));
     p->root->next = NULL;
     p->tail = p->root;
-    printf("create a table: %d\n", p->depth);
+    //printf("create a table: %d\n", p->depth);
     if (cur_header == NULL) {
         p->previous = NULL;
         cur_header = p;
@@ -269,12 +358,12 @@ void insert_symbol(Header *header, char* id_name, char* type, char* kind, char* 
     }
     else {
         if(kind == "variable"){
-            sprintf(msg, "Redeclared variable <%s>", id_name);
-            flag = 3;
+            sprintf(msg[error_num++], "Redeclared variable %s", id_name);
+            error_flag[1] = 1;
         }
         else if (kind == "function"){
-            sprintf(msg, "Redeclared function <%s>", id_name);
-            flag = 4;
+            sprintf(msg[error_num++], "Redeclared function %s", id_name);
+            error_flag[1] = 1;
         }    
     }
 }
@@ -296,7 +385,7 @@ int lookup_symbol(Header *header, char *id_name) {
     }
 }
 void dump_symbol() {
-    if (cur_header->root != NULL) {
+    if (cur_header->root->next != NULL) {
         printf("\n%-10s%-10s%-12s%-10s%-10s%-10s\n\n",
            "Index", "Name", "Kind", "Type", "Scope", "Attribute");
         Entry *cur = cur_header->root->next;
@@ -307,7 +396,7 @@ void dump_symbol() {
             free(temp);
             temp = NULL;
         }
-        entry_num[depth] = 0;
+        entry_num[cur_header->depth] = 0;
     }
     cur_header = cur_header->previous;
     depth--;

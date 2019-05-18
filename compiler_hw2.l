@@ -10,8 +10,10 @@ char buf[BUF_SIZE];
 int line_num = 0;
 int comment_num = 0;
 int comment_line = -1;
-int flag = 0;
-char msg[100];
+int error_flag[2] = {0};
+char msg[10][100];
+int error_num = 0;
+int dump_flag = 0;
 /* This macro is used to record code line */
 #define CONCAT { strncat(buf, yytext, BUF_SIZE - strlen(buf) - 1); }
 %}
@@ -150,16 +152,21 @@ id			{letter}+({letter}|{digit})*
 
 [;]         { CONCAT; return SEMICOLON; }
 [\n]        { CONCAT;
-                if(flag == -1) {
+                printf(buf);
+                if(error_flag[1] = 1) {
+                    for (int i = 0; i < error_num; i++) {
+                        yyerror(msg[i]);
+                    }
+                    error_flag[1] = 0;
+                    error_num = 0;
+                }          
+                if(error_flag[0] == 1) {
                     yyerror("syntax error");
                     yyterminate();
                 }
-                else if(flag != 0) {
-                    yyerror(msg);
-                    flag = 0;
-                }
-                else {
-                    printf(buf);
+                if(dump_flag == 1) {
+                    dump_symbol();
+                    dump_flag = 0;
                 }
                 memset(buf,'\0', BUF_SIZE);
                 line_num++; }
