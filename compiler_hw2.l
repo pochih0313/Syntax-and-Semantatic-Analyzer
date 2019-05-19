@@ -134,7 +134,12 @@ id			{letter}+({letter}|{digit})*
                         }
                     }
 <COMMENT>[^*\n]+	{ CONCAT; }
-<COMMENT>\n			{ CONCAT; comment_num++; line_num++; }
+<COMMENT>\n			{ if(strcmp(buf, "\0") == 0)
+                            printf("%d:\n", ++line_num);
+                        else
+                            printf("%d: %s\n", ++line_num, buf);
+                        memset(buf, '\0', BUF_SIZE);
+                        comment_num++;}
 <COMMENT>"*"		{ CONCAT; }
 <COMMENT>"*/"		{ BEGIN INITIAL;
                         CONCAT;
@@ -151,8 +156,11 @@ id			{letter}+({letter}|{digit})*
  /* others */
 
 [;]         { CONCAT; return SEMICOLON; }
-[\n]        { CONCAT;
-                printf(buf);
+[\n]        {   if(strcmp(buf, "\0") == 0)
+                    printf("%d:\n", ++line_num);
+                else
+                    printf("%d: %s\n", ++line_num, buf);
+                    
                 if(error_flag[1] = 1) {
                     for (int i = 0; i < error_num; i++) {
                         yyerror(msg[i]);
@@ -169,7 +177,7 @@ id			{letter}+({letter}|{digit})*
                     dump_flag = 0;
                 }
                 memset(buf,'\0', BUF_SIZE);
-                line_num++; }
+                 }
 [ \t]		{ CONCAT; } /* Ignore */
 [^ \t\n] 	{ CONCAT; } /* Ignore other charactor sets */
 <<EOF>>     { yyterminate(); }

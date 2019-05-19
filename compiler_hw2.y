@@ -239,7 +239,7 @@ type_arguments
     |
 ;
 arg
-    : type ID { insert_symbol(cur_header, $2.id_name, $1, "parameter", ""); }
+    : type ID { insert_symbol(cur_header, $2.id_name, $1, "parameter", $1); }
 ;
 func_block
     : LCB program RCB { dump_flag = 1; }
@@ -302,8 +302,8 @@ int main(int argc, char** argv)
     yylineno = 0;
     yyparse();
     if(error_flag[0] != 1) {
-        printf("\nTotal lines: %d \n",yylineno);
         dump_symbol();
+        printf("\nTotal lines: %d \n",yylineno);
     }
     return 0;
 }
@@ -351,7 +351,19 @@ void insert_symbol(Header *header, char* id_name, char* type, char* kind, char* 
         temp->kind = kind;
         temp->type = type;
         temp->scope = header->depth;
-        temp->attribute = attribute;
+        temp->attribute = "";
+        if(header->previous != NULL){
+            if(header->previous->tail->attribute == "")
+                header->previous->tail->attribute = attribute;
+            else {
+                char* temp;
+                temp = malloc(sizeof(char *));
+                sprintf(temp,"%s, %s", header->previous->tail->attribute, attribute);
+                header->previous->tail->attribute = temp;
+            }
+                
+            
+        }
         temp->next = NULL;
         header->tail->next = temp;
         header->tail = header->tail->next;
@@ -390,12 +402,18 @@ void dump_symbol() {
            "Index", "Name", "Kind", "Type", "Scope", "Attribute");
         Entry *cur = cur_header->root->next;
         while(cur != NULL) {
-            printf("%-10d%-10s%-12s%-10s%-10d%-10s\n", cur->index, cur->name, cur->kind, cur->type, cur->scope, cur->attribute);
+            if(cur->attribute != "") {
+                printf("%-10d%-10s%-12s%-10s%-10d%s\n", cur->index, cur->name, cur->kind, cur->type, cur->scope, cur->attribute);
+            }
+            else {
+                printf("%-10d%-10s%-12s%-10s%-10d\n", cur->index, cur->name, cur->kind, cur->type, cur->scope);
+            }
             Entry *temp = cur;
             cur = cur->next;
             free(temp);
             temp = NULL;
         }
+        printf("\n");
         entry_num[cur_header->depth] = 0;
     }
     cur_header = cur_header->previous;
