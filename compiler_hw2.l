@@ -161,7 +161,7 @@ id			{letter}+({letter}|{digit})*
                 else
                     printf("%d: %s\n", ++line_num, buf);
                     
-                if(error_flag[1] = 1) {
+                if(error_flag[1] == 1) {
                     for (int i = 0; i < error_num; i++) {
                         yyerror(msg[i]);
                     }
